@@ -5,103 +5,176 @@ import json
 from urllib.parse import urlparse
 from bs4 import BeautifulSoup
 
-class BT:
-    NEWSPAPER = 'B.T.'
-    PAGEURL = 'www.bt.dk'
-    CRAWL_SUBPAGES = [
-        '/samfund/',
-        '/krimi/'
-    ]
+from abc import ABC, abstractmethod
 
+class Newspaper(ABC):
+    
     class URLDoesNotMatchNewspaper(Exception):
         pass
 
-    def __init__(self, url):
-        # Store URL
-        self._url = url
-        # Validate that the URL is from BT
-        if BT.PAGEURL not in url:
-            raise BT.URLDoesNotMatchNewspaper()
+    def __init__(self, newspaperName, newspaperUrl, exclude_subpaths, articleUrl):
+        # Store the variables
+        self._newspaperName = newspaperName
+        self._newspaperUrl = newspaperUrl
+        self._exclude_subpaths = exclude_subpaths
+        self._articleUrl = articleUrl
+        # Validate that the URL is from the respective newspaper
+        if self.getNewspaperUrl() not in self._articleUrl:
+            raise Newspaper.URLDoesNotMatchNewspaper()
+        # Parse the HTML soup
+        self._articleSoup = Newspaper._getPageSoup(self._articleUrl)
+
+    def getNewspaperName(self):
+        return self._newspaperName
+
+    def getNewspaperUrl(self):
+        return self._newspaperUrl
+
+    def getArticleUrl(self):
+        return self._articleUrl
+
+    @abstractmethod
+    def getTitle(self):
+        pass
+
+    @abstractmethod
+    def getContent(self):
+        pass
+
+    @abstractmethod
+    def getMetaInfo(self):
+        pass
+
+    @abstractmethod
+    def getLinkedArticles(self):
+        pass
+
+    def getArticleEntry(self):
+        return {
+            'newspaper': self.getNewspaperName(),
+            'url': self.getArticleUrl(),
+            'metainfo': self.getMetaInfo(),
+            'title': self.getTitle(),
+            'content': self.getContent()
+        }
+
+    @staticmethod
+    @abstractmethod
+    def getNetloc():
+        pass
+
+    @staticmethod
+    def _getArticleSubPath(articlePath):
+        try:
+            # Get the index of the last / to isolate catagory
+            subPathIndex = articlePath.index('/',1)
+            # Return the catagory
+            return articlePath[0:subPathIndex + 1]
+        except ValueError:
+            # Slash not found
+            return None
+
+    @staticmethod
+    def _getPageSoup(articleUrl):
         # Download the webpage
-        req = requests.get(url)
+        req = requests.get(articleUrl)
         # Get the HTML
         html = req.content
         # Parse the HTML soup
-        self._soup = BeautifulSoup(html, 'html.parser')
+        return BeautifulSoup(html, 'html.parser')
+
+class BT(Newspaper):
+    NEWSPAPER_NAME = 'B.T.'
+    NEWSPAPER_URL = 'https://www.bt.dk'
+    EXCLUDE_SUBPATHS = [
+        '/rabatkode/',
+        '/content/',
+        '/cookiedeklaration'
+    ]
+
+    def __init__(self, articleUrl):
+        # Call the super constructor
+        super(BT, self).__init__(
+            BT.NEWSPAPER_NAME,
+            BT.NEWSPAPER_URL,
+            BT.EXCLUDE_SUBPATHS,
+            articleUrl
+        )
 
     def getTitle(self):
         # Get the title from the title class, strip it of newlines and return the title
-        return self._soup.find(class_ = 'article-title').text.strip()
+        return self._articleSoup.find(class_ = 'article-title').text.strip()
 
-    def getText(self):
+    def getContent(self):
         # Get the article content
-        contentArray = self._soup.find(class_='article-content').find_all('p')
+        contentArray = self._articleSoup.find(class_='article-content').find_all('p')
         # Create a temporaty variable for the article content
         articleContent = ""
         # Loop through each article element
         for content in contentArray:
             # Skip the entry if it contains the phrase 'Foto: '
             try:
-                content.index('Foto: ')
+                content.text.index('Foto: ')
                 continue
-            except:
-                # Get the text of the HTML tage, and append it to the article content. Add a space
-                articleContent += content.text.strip() + " "
+            except: pass
+            try:
+                content.text.index('Vis mere')
+                continue
+            except: pass
+            # Get the text of the HTML tage, and append it to the article content. Add a space
+            articleContent += content.text.strip() + " "
         # Return the article content
         return articleContent
 
-    def getRelated(self):
-        # Create a temp var to store links
-        relatedLinks = []
-        # Find all link tags
-        for link in self._soup.find_all('a'):
-            # Parse the link
-            parsedUrl = urlparse(link.get('href'))
-            # Remove all links outside BT
-            if parsedUrl.netloc == BT.PAGEURL:
-                # Get article catagory, and compare to subpages to crawl
-                if self._getCatagory(parsedUrl.path) in BT.CRAWL_SUBPAGES:
-                    # Validate that the article is not already in relatedLinks
-                    if link.get('href') not in relatedLinks:
-                        # Append the article link
-                        relatedLinks.append(link.get('href'))
-                    else:
-                        # Continue
-                        continue
-                else:
-                    # Continue
-                    continue
-        # Return the related articles
-        return relatedLinks
+    def getMetaInfo(self):
+        return {
+            'catagory': self._getCatagory()
+        }
 
-    def getCatagory(self):
+    def _getCatagory(self):
         # Parse the link
-        parsedUrl = urlparse(self._url)
-        # Return the catagory
-        return self._getCatagory(parsedUrl.path)
-
-    @staticmethod
-    def _getCatagory(path):
-        # All articles belong to a catagory. The catagory is shown in the link with '/samfund/some-very-clickbate-article'
+        parsedUrl = urlparse(self._articleUrl)
+        # All BT articles belong to a catagory. The catagory is shown in the link with '/samfund/some-very-clickbate-article'
         try:
             # Get the index of the last / to isolate catagory
-            catagoryLastSlash = path.index('/',1)
+            catagoryLastSlash = parsedUrl.path.index('/',1)
             # Return the catagory
-            return path[0:catagoryLastSlash + 1]
+            return parsedUrl.path[1:catagoryLastSlash]
         except ValueError:
             # Slash not found
             return None
 
-    @staticmethod
-    def getNewspaper():
-        return BT.NEWSPAPER
+    def getLinkedArticles(self):
+        # Create a temp var to store links
+        linkedArticles = []
+        # Find all link tags
+        for link in self._articleSoup.find_all('a'):
+            # Store the article article url
+            articleUrl = link.get('href')
+            # Parse the link
+            parsedUrl = urlparse(articleUrl)
+            # Remove all links outside BT
+            if parsedUrl.netloc == self.getNetloc():
+                # Get the subpath, the part of the link: '/somesubpath/somearticle'
+                subpath = self._getArticleSubPath(parsedUrl.path)
+                # Remove all links that are in the excluded subpaths
+                if not (subpath in self._exclude_subpaths or subpath == None):
+                    # Validate that the article is not already in relatedLinks
+                    if articleUrl not in linkedArticles:
+                        # Append the article link
+                        linkedArticles.append(articleUrl)
+                    else:
+                        # Continue
+                        continue
+                else:
+                    continue
+        # Return the related articles
+        return linkedArticles
 
     @staticmethod
-    def getNewspaperURL():
-        return BT.PAGEURL
-
-    def getURL(self):
-        return self._url
+    def getNetloc():
+        # Parse self url
+        return urlparse(BT.NEWSPAPER_URL).netloc
 
 class Crawler:
     NEWSPAPERS = [
@@ -135,15 +208,24 @@ class Crawler:
         else:
             # Instantiate variable to store queue
             self._queue = []
-        print(self._queue)
         # Store the queue index of the current task
         self._queueIndex = 0
         # Save the output file name
         self._outFileName = outFileName
 
+    def curlAllNewspapers(self):
+        # For each of the newspages, get the front page and get all related articles
+        for newspaper in Crawler.NEWSPAPERS:
+            # Instantiate the newspaper to the front page
+            np = newspaper(newspaper.NEWSPAPER_URL)
+            # Get related articles
+            for articleURL in np.getLinkedArticles():
+                # Add the article
+                self.addArticle(articleURL)
+
     def addArticle(self, articleURL):
         # Validate that the link is not already in the queue
-        if not self._isLinkInQueue():
+        if not self._isLinkInQueue(articleURL):
             # Add the article
             self._queueLink(articleURL)
             # Return true to indicate success
@@ -175,8 +257,8 @@ class Crawler:
         parsedUrl = urlparse(url)
         # Look-up the netloc and compare to known newspapers
         for newspaper in Crawler.NEWSPAPERS:
-            # If netlock matches newspaper URL, return the netspaper
-            if parsedUrl.netloc == newspaper.getNewspaperURL():
+            # If netlock matches newspaper URL, return the newspaper
+            if parsedUrl.netloc == newspaper.getNetloc():
                 return newspaper
         # If loop did not return a newspaper, newspaper is unsupported
         return Crawler._unsupportedNewspaper        
@@ -249,9 +331,9 @@ class Crawler:
                     try:
                         newspage = newspaper(queueEntry['url'])
                         # Save the article
-                        Crawler._saveEntryToOutput(self._outFileName, newspage)
+                        Crawler._saveEntryToOutput(self._outFileName, newspage.getArticleEntry())
                         # Queue related articles
-                        numRelatedArticles = self._queueRelatedArticles(newspage.getRelated())
+                        numRelatedArticles = self._queueRelatedArticles(newspage.getLinkedArticles())
                         # Mark the entry as downloaded in the queue
                         self._updateQueueEntry(queueEntry, Crawler.URLStatus.DOWNLOADED)
                         # Mark download successfull
@@ -277,7 +359,7 @@ class Crawler:
         queuedItems = 0
         # For each related articles, queue it
         for articleLink in relatedArticles:
-            if not self._isLinkInQueue():
+            if not self._isLinkInQueue(articleLink):
                 self._queueLink(articleLink)
                 queuedItems += 1
             else:
@@ -304,11 +386,12 @@ class Crawler:
         #Crawler.screen_clear()
         print('Article status: ' + 'Downloaded' if downloaded else 'Not downloaded' )
         print('Queueing new articles: ' + str(numRelatedArticles))
-        print('New queue length: ' + str(self._queueIndex))
+        print('New queue length: ' + str(len(self._queue)))
         print('----------- End run -----------')
 
     @staticmethod
     def _printQueueEmpty():
+        print('----------- Periodic run -----------')
         print('Queue exhausted. Stopping.')
         print('----------- End run -----------')
 
@@ -317,26 +400,19 @@ class Crawler:
         raise Crawler.UnsupportedNewspaper()
 
     @staticmethod
-    def _saveEntryToOutput(outFileName, newspage):
-        # Prepare the output entry
-        entry = {
-            'newspaper': newspage.getNewspaper(),
-            'url': newspage.getURL(),
-            'title': newspage.getTitle(),
-            'text': newspage.getText()
-        }
+    def _saveEntryToOutput(outFileName, articleEntry):
         # Open the output file
         try:
             # Try creating the file
             with open(outFileName, "x") as outfile:
                 # Dump the new data
-                json.dump([entry], outfile)
+                json.dump([articleEntry], outfile)
         except FileExistsError: # If the file exists, an exception is thrown
             with open(outFileName, "r+") as outfile:
                 # Load the current data from the file
                 entries = json.load(outfile)
                 # Add new data to the entry
-                entries.append(entry)
+                entries.append(articleEntry)
                 # Reset the file pointer
                 outfile.seek(0)
                 # Dump the new data
@@ -344,7 +420,8 @@ class Crawler:
 
 # On keyboard interrupt or shutdown
 def signal_handler(signal, frame):
-    print("\nMain -> Terminat signal recieved")
+    print('----------- Exiting -----------')
+    print("Terminat signal recieved")
     raise ExitProgram()
 
 # Program exit exception
@@ -358,12 +435,15 @@ if __name__ == '__main__':
     signal.signal(signal.SIGTERM, signal_handler)
     # Create an instance of the crawler class
     crawler = Crawler()
-    crawler.addArticle('https://www.bt.dk/samfund/han-vandt-danmarkshistoriens-naeststoerste-lottogevinst-nu-fortaeller-han-hvordan')
+    #crawler.addArticle('https://www.bt.dk/samfund/han-vandt-danmarkshistoriens-naeststoerste-lottogevinst-nu-fortaeller-han-hvordan')
+    #crawler.addArticle('https://www.bt.dk/royale/efter-royalt-skilsmissedrama-nu-reagerer-prins-louis-ekshustru')
+    crawler.curlAllNewspapers()
     # Monitor program status
     try:
         crawler.run()
     except ExitProgram:
-        print("Main -> Program killed, running cleanup")
+        print("Program killed, running cleanup")
         crawler.finalize()
     finally:
-        print("Main -> Cleanup completed")
+        print("Cleanup completed")
+        print('----------- Exiting -----------')
