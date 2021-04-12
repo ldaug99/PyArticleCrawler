@@ -12,6 +12,7 @@ To install all the required pacakges, run the ```install.py``` script. Most ofte
 git clone https://github.com/ldaug99/PyArticleCrawler.git
 cd PyArticleCrawler
 python3 -m venv .
+source bin/activate
 python3 install.py
 ```
 
