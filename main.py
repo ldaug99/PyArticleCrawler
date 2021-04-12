@@ -30,7 +30,7 @@ class Crawler:
     class QueueIsEmpty(Exception):
         pass
 
-    def __init__(self, outFileName = 'articles.txt', storeQueue = True):
+    def __init__(self, outFileName = 'articles.json', storeQueue = True):
         self._lastRun = 0
         self._doRun = False
         self._storeQueue = storeQueue

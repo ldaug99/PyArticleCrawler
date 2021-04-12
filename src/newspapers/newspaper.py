@@ -80,3 +80,8 @@ class Newspaper(ABC):
         html = req.content
         # Parse the HTML soup
         return BeautifulSoup(html, 'html.parser')
+
+    @classmethod
+    def getNetloc(_class):
+        # Parse self url
+        return urlparse(_class.NEWSPAPER_URL).netloc

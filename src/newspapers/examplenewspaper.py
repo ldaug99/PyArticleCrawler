@@ -3,16 +3,18 @@ from .newspaper import Newspaper as Newspaper
 from urllib.parse import urlparse
 from bs4 import BeautifulSoup
 
-# BT class definition
-class BT(Newspaper):
-    NEWSPAPER_NAME = 'B.T.'
-    NEWSPAPER_URL = 'https://www.bt.dk'
-    EXCLUDE_SUBPATHS = [
+# !!! This class should be customized to the specific newspaper
+# An example newspaper class definition
+class Examplenewspaper(Newspaper):
+    NEWSPAPER_NAME = 'B.T.' # Newspaper name to apper in output file # CHANGE ME!
+    NEWSPAPER_URL = 'https://www.bt.dk' # Newspaper URL # CHANGE ME!
+    EXCLUDE_SUBPATHS = [ # Paths of newspaper to avoid when crawling
         '/rabatkode/',
         '/content/',
         '/cookiedeklaration'
-    ]
+    ] # CHANGE ME!
 
+    # Class constructor, leave unchanged
     def __init__(self, articleUrl):
         # Call the super constructor
         super(type(self), self).__init__(
@@ -22,10 +24,18 @@ class BT(Newspaper):
             articleUrl
         )
 
+    """Returns the title of the article.
+
+    This function should return the title of the web article as plain text.
+    """
     def getTitle(self):
         # Get the title from the title class, strip it of newlines and return the title
         return self._articleSoup.find(class_ = 'article-title').text.strip()
 
+    """Returns the content of the article.
+
+    This function should return the content of the web article as plain text.
+    """
     def getContent(self):
         # Get the article content
         contentArray = self._articleSoup.find(class_='article-content').find_all('p')
@@ -47,24 +57,17 @@ class BT(Newspaper):
         # Return the article content
         return articleContent
 
+    """Returns the metadata of the article.
+
+    This function should return article metadata, such as catagory, or None if no metadata is desired.
+    """
     def getMetaInfo(self):
-        return {
-            'catagory': self._getCatagory()
-        }
+        return None
 
-    def _getCatagory(self):
-        # Parse the link
-        parsedUrl = urlparse(self._articleUrl)
-        # All BT articles belong to a catagory. The catagory is shown in the link with '/samfund/some-very-clickbate-article'
-        try:
-            # Get the index of the last / to isolate catagory
-            catagoryLastSlash = parsedUrl.path.index('/',1)
-            # Return the catagory
-            return parsedUrl.path[1:catagoryLastSlash]
-        except ValueError:
-            # Slash not found
-            return None
+    """Returns a list of related article links.
 
+    This function should return a list of article links related to the current article.
+    """
     def getLinkedArticles(self):
         # Create a temp var to store links
         linkedArticles = []

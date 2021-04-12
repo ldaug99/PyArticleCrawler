@@ -138,4 +138,4 @@ lib64
 
 # Ignore article file and queue
 .queue
-articles.txt
+articles.json
