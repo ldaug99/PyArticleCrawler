@@ -199,8 +199,6 @@ class Crawler:
                     millisecToNextRun = Crawler.CRAWL_DELAY - (round(time.time() * 1000) - self._lastRun)
                     # Wait a time to avoid getting blocked by newspaper
                     time.sleep(0 if millisecToNextRun < 0 else millisecToNextRun)
-                    # Run the task again
-                    self._task()
                 except Crawler.QueueIsEmpty:
                     Crawler._printQueueEmpty()
                     # Stop running the task
