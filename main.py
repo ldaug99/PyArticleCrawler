@@ -43,6 +43,7 @@ class Crawler:
         pass
 
     def __init__(self, outFileName = 'articles.json', storeQueue = True):
+        self._downloadedArticles = 0
         self._lastRun = 0
         self._doRun = False
         self._storeQueue = storeQueue
@@ -150,6 +151,9 @@ class Crawler:
             queueEntry = self._queue[self._queueIndex]
             # Increment the queueIndex
             self._queueIndex += 1
+            # If the article is already downloaded mark if
+            if queueEntry['status'] == Crawler.URLStatus.DOWNLOADED:
+                self._downloadedArticles += 1
             # Check the status of the entry
             if queueEntry['status'] == Crawler.URLStatus.PENDING or queueEntry['status'] == Crawler.URLStatus.UNSUPPORTED:
                 # Return the queueEntry
@@ -179,6 +183,8 @@ class Crawler:
                         if articleEntry:
                             # Save the article
                             Crawler._saveEntryToOutput(self._outFileName, articleEntry)
+                            # Count up in downloaded articles
+                            self._downloadedArticles += 1
                             # Update the article status
                             articleStatus = Crawler.URLStatus.DOWNLOADED
                         else:
