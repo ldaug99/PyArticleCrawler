@@ -16,7 +16,7 @@ darwin = []
 # Install packages
 def install(packages):
 	for package in packages:
-		os.system("python3 -m pip install {}".format(package))
+		os.system("python -m pip install {}".format(package))
 # Run script
 if __name__ == '__main__':
 	# Import platform to get OS type

@@ -10,7 +10,13 @@ class BT(Newspaper):
     EXCLUDE_SUBPATHS = [
         '/rabatkode/',
         '/content/',
-        '/cookiedeklaration'
+        '/cookiedeklaration',
+        '/mine-sider/',
+        '/podcast',
+        '/btvideo',
+        '/tip',
+        '/#',
+        '/e-avis'
     ]
 
     def __init__(self, articleUrl):
@@ -24,28 +30,39 @@ class BT(Newspaper):
 
     def getTitle(self):
         # Get the title from the title class, strip it of newlines and return the title
-        return self._articleSoup.find(class_ = 'article-title').text.strip()
+        articleTitle = self._articleSoup.find(class_ = 'article-title')
+        # Validate that the article title was found, else the page is an index page
+        if articleTitle:
+            return articleTitle.text.strip()
+        else:
+            return None
 
     def getContent(self):
         # Get the article content
-        contentArray = self._articleSoup.find(class_='article-content').find_all('p')
-        # Create a temporaty variable for the article content
-        articleContent = ""
-        # Loop through each article element
-        for content in contentArray:
-            # Skip the entry if it contains the phrase 'Foto: '
-            try:
-                content.text.index('Foto: ')
-                continue
-            except: pass
-            try:
-                content.text.index('Vis mere')
-                continue
-            except: pass
-            # Get the text of the HTML tage, and append it to the article content. Add a space
-            articleContent += content.text.strip() + " "
-        # Return the article content
-        return articleContent
+        articleContent = self._articleSoup.find(class_='article-content')
+        # Validate that the article content was found, else the page is an index page
+        if articleContent:
+            # Get the article content
+            contentArray = articleContent.find_all('p')
+            # Create a temporaty variable for the article content
+            articleContentText = ""
+            # Loop through each article element
+            for content in contentArray:
+                # Skip the entry if it contains the phrase 'Foto: '
+                try:
+                    content.text.index('Foto: ')
+                    continue
+                except: pass
+                try:
+                    content.text.index('Vis mere')
+                    continue
+                except: pass
+                # Get the text of the HTML tage, and append it to the article content. Add a space
+                articleContentText += content.text.strip() + " "
+            # Return the article content
+            return articleContentText
+        else:
+            return None
 
     def getMetaInfo(self):
         return {
@@ -72,6 +89,14 @@ class BT(Newspaper):
         for link in self._articleSoup.find_all('a'):
             # Store the article article url
             articleUrl = link.get('href')
+            # All links that start with a slash are local pages, add https://www.bt.dk to these
+            try:
+                # Try finding the leading slash
+                articleUrl.index('/', 0, 1)
+                # If the leading slash was found, append the newspaper url
+                articleUrl = BT.NEWSPAPER_URL + articleUrl
+            except:
+                pass
             # Parse the link
             parsedUrl = urlparse(articleUrl)
             # Remove all links outside BT

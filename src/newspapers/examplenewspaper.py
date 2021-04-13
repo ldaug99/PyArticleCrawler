@@ -26,36 +26,47 @@ class Examplenewspaper(Newspaper):
 
     """Returns the title of the article.
 
-    This function should return the title of the web article as plain text.
+    This function should return the title of the web article as plain text, or null if the page is not an article.
     """
     def getTitle(self):
         # Get the title from the title class, strip it of newlines and return the title
-        return self._articleSoup.find(class_ = 'article-title').text.strip()
+        articleTitle = self._articleSoup.find(class_ = 'article-title')
+        # Validate that the article title was found, else the page is an index page
+        if articleTitle:
+            articleTitle.text.strip()
+        else:
+            return None
 
     """Returns the content of the article.
 
-    This function should return the content of the web article as plain text.
+    This function should return the content of the web article as plain text, or null if the page is not an article.
     """
     def getContent(self):
         # Get the article content
-        contentArray = self._articleSoup.find(class_='article-content').find_all('p')
-        # Create a temporaty variable for the article content
-        articleContent = ""
-        # Loop through each article element
-        for content in contentArray:
-            # Skip the entry if it contains the phrase 'Foto: '
-            try:
-                content.text.index('Foto: ')
-                continue
-            except: pass
-            try:
-                content.text.index('Vis mere')
-                continue
-            except: pass
-            # Get the text of the HTML tage, and append it to the article content. Add a space
-            articleContent += content.text.strip() + " "
-        # Return the article content
-        return articleContent
+        articleContent = self._articleSoup.find(class_='article-content')
+        # Validate that the article content was found, else the page is an index page
+        if articleContent:
+            # Get the article content
+            contentArray = articleContent.find_all('p')
+            # Create a temporaty variable for the article content
+            articleContentText = ""
+            # Loop through each article element
+            for content in contentArray:
+                # Skip the entry if it contains the phrase 'Foto: '
+                try:
+                    content.text.index('Foto: ')
+                    continue
+                except: pass
+                try:
+                    content.text.index('Vis mere')
+                    continue
+                except: pass
+                # Get the text of the HTML tage, and append it to the article content. Add a space
+                articleContentText += content.text.strip() + " "
+            # Return the article content
+            return articleContentText
+        else:
+            return None
 
     """Returns the metadata of the article.
 

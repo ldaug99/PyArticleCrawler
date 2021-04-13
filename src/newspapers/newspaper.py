@@ -48,13 +48,20 @@ class Newspaper(ABC):
         pass
 
     def getArticleEntry(self):
-        return {
-            'newspaper': self.getNewspaperName(),
-            'url': self.getArticleUrl(),
-            'metainfo': self.getMetaInfo(),
-            'title': self.getTitle(),
-            'content': self.getContent()
-        }
+        # Get the article title and content
+        title = self.getTitle()
+        content = self.getContent()
+        # Return the articleEntry or null if the title or content is None
+        if title and content:
+            return {
+                'newspaper': self.getNewspaperName(),
+                'url': self.getArticleUrl(),
+                'metainfo': self.getMetaInfo(),
+                'title': title,
+                'content': content
+            }
+        else:
+            return None
 
     @staticmethod
     @abstractmethod

@@ -13,7 +13,7 @@ class Crawler:
         BT
     ]
 
-    CRAWL_DELAY = 2 # Delay in seconds between each page download
+    CRAWL_DELAY = 20 # Delay in milliseconds between each page download
 
     QUEUE_STORE_FILE = '.queue'
 
@@ -23,6 +23,18 @@ class Crawler:
         UNSUPPORTED = 2
         UNAVALIABLE = 3
         INVALID = 4
+        ISINDEX = 5
+        FAILED = 6
+
+        TEXT_STATUS = {
+            PENDING: 'Pending download',
+            DOWNLOADED: 'Downloaded',
+            UNSUPPORTED: 'The newspaper is unsupported',
+            UNAVALIABLE: 'The URL is inavaliable',
+            INVALID: 'The URL is invalid',
+            ISINDEX: 'The page is an index',
+            FAILED: 'Download failed',
+        }
 
     class UnsupportedNewspaper(Exception):
         pass
@@ -48,12 +60,14 @@ class Crawler:
     def curlAllNewspapers(self):
         # For each of the newspages, get the front page and get all related articles
         for newspaper in Crawler.NEWSPAPERS:
-            # Instantiate the newspaper to the front page
-            np = newspaper(newspaper.NEWSPAPER_URL)
-            # Get related articles
-            for articleURL in np.getLinkedArticles():
-                # Add the article
-                self.addArticle(articleURL)
+            # # Instantiate the newspaper to the front page
+            # np = newspaper(newspaper.NEWSPAPER_URL)
+            # Add the article
+            self.addArticle(newspaper.NEWSPAPER_URL)
+            # # Get related articles
+            # for articleURL in np.getLinkedArticles():
+            #     # Add the article
+            #     self.addArticle(articleURL)
 
     def addArticle(self, articleURL):
         # Validate that the link is not already in the queue
@@ -155,30 +169,36 @@ class Crawler:
                     queueEntry = self._getNextInQueue()
                     # Print output
                     self._printPreDownloadStatusToTerminal(queueEntry['url'])
-                    downloaded = False
+                    articleStatus = Crawler.URLStatus.FAILED
                     numRelatedArticles = 0
                     # Get the newspaper from the URL
                     newspaper = Crawler._getNewspaperFromURL(queueEntry['url'])
                     # Try getting the article from the newspaper
                     try:
                         newspage = newspaper(queueEntry['url'])
-                        # Save the article
-                        Crawler._saveEntryToOutput(self._outFileName, newspage.getArticleEntry())
+                        # Get the articleEntry
+                        articleEntry = newspage.getArticleEntry()
+                        if articleEntry:
+                            # Save the article
+                            Crawler._saveEntryToOutput(self._outFileName, articleEntry)
+                            # Update the article status
+                            articleStatus = Crawler.URLStatus.DOWNLOADED
+                        else:
+                            # The page does not contain an article, just get related
+                            articleStatus = Crawler.URLStatus.ISINDEX 
                         # Queue related articles
                         numRelatedArticles = self._queueRelatedArticles(newspage.getLinkedArticles())
                         # Mark the entry as downloaded in the queue
-                        self._updateQueueEntry(queueEntry, Crawler.URLStatus.DOWNLOADED)
-                        # Mark download successfull
-                        downloaded = True
+                        self._updateQueueEntry(queueEntry, articleStatus)
                     except Crawler.UnsupportedNewspaper:
                         # Marke article as unsupported in queue
                         self._updateQueueEntry(queueEntry, Crawler.URLStatus.UNSUPPORTED)
                     # Print output
-                    self._printEndDownloadStatusToTerminal(downloaded, numRelatedArticles)
+                    self._printEndDownloadStatusToTerminal(articleStatus, numRelatedArticles)
                     # Calcualte time until next run
-                    secToNextRun = Crawler.CRAWL_DELAY - (round(time.time()) - self._lastRun)
+                    millisecToNextRun = Crawler.CRAWL_DELAY - (round(time.time() * 1000) - self._lastRun)
                     # Wait a time to avoid getting blocked by newspaper
-                    time.sleep(0 if secToNextRun < 0 else secToNextRun)
+                    time.sleep(0 if millisecToNextRun < 0 else millisecToNextRun)
                     # Run the task again
                     self._task()
                 except Crawler.QueueIsEmpty:
@@ -214,9 +234,9 @@ class Crawler:
         print('Queue length: ' + str(len(self._queue)))
         print('Downloading article: ' + url)
         
-    def _printEndDownloadStatusToTerminal(self, downloaded, numRelatedArticles):
+    def _printEndDownloadStatusToTerminal(self, articleStatus, numRelatedArticles):
         #Crawler.screen_clear()
-        print('Article status: ' + 'Downloaded' if downloaded else 'Not downloaded' )
+        print('Article status: ' + Crawler.URLStatus.TEXT_STATUS[articleStatus] )
         print('Queueing new articles: ' + str(numRelatedArticles))
         print('New queue length: ' + str(len(self._queue)))
         print('----------- End run -----------')
