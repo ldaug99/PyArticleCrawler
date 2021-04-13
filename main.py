@@ -142,8 +142,10 @@ class Crawler:
         self._queue[entryIndex]['status'] = status
 
     def _getNextInQueue(self):
-        # Make sure at least one entry was queue
-        if len(self._queue) > 0 and self._queueIndex < len(self._queue):
+        # Get the length of the queue
+        queueLength = len(self._queue)
+        # Keep incrementing the queueIndex, until the next element in the queue is found
+        while self._queueIndex < queueLength:
             # Get the queue entry
             queueEntry = self._queue[self._queueIndex]
             # Increment the queueIndex
@@ -152,12 +154,8 @@ class Crawler:
             if queueEntry['status'] == Crawler.URLStatus.PENDING or queueEntry['status'] == Crawler.URLStatus.UNSUPPORTED:
                 # Return the queueEntry
                 return queueEntry
-            else:
-                # Run the function again
-                return self._getNextInQueue()
-        else:
-            # Raise exception
-            raise Crawler.QueueIsEmpty()
+        # Raise exception if the queue is exhausted
+        raise Crawler.QueueIsEmpty()
 
     def _task(self):
         while True:

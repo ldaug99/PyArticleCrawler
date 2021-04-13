@@ -16,7 +16,16 @@ class BT(Newspaper):
         '/btvideo',
         '/tip',
         '/#',
-        '/e-avis'
+        '/e-avis',
+        '/api',
+        '/reset_password',
+        '/logout',
+        '/login',
+        '/faa-adgang',
+        '/showMore',
+        '/image_gallery/',
+        '/tracking/image_gallery/',
+        '/search'
     ]
 
     def __init__(self, articleUrl):
